@@ -15,7 +15,6 @@ class Agent:
         self.MW_expert = False
         self.ucb = False
 
-        # data = pd.read_csv('Milano_timeseries.csv', header=None).to_numpy()
         # Load data from CSV file
         with open('Milano_timeseries.csv', 'r', encoding='ISO-8859-1') as csvfile:
             reader = csv.reader(csvfile)
