@@ -15,7 +15,7 @@ class Agent:
         self.MW_expert = False
         self.ucb = False
 
-        # Load data from CSV file
+        # load data from CSV file
         with open('Milano_timeseries.csv', 'r', encoding='ISO-8859-1') as csvfile:
             reader = csv.reader(csvfile)
             self.data = np.array(list(reader)).astype('float')
