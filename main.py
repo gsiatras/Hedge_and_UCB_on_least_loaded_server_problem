@@ -30,12 +30,12 @@ class Agent:
         self.regret = []
         self.root = []
 
-    def grapher(self):
-        # plt.plot(np.arange(1, self.T + 1), self.regret)
-        # plt.title("Hedge [T = %d, k = %d]" % (self.T, self.n_servers))
-        # plt.xlabel("Round T")
-        # plt.ylabel("Regret")
-        # plt.show()
+    def grapher(self, regret1):
+        plt.plot(np.arange(1, self.T + 1), regret1)
+        plt.title("Hedge in expert [T = %d]" % self.T)
+        plt.xlabel("Round T")
+        plt.ylabel("Regret")
+        plt.show()
 
         # plt.plot(np.arange(1, self.T + 1), regret_ucb)
         # plt.title("UCB Performance [T = %d, k = %d]" % (self.T, self.k))
@@ -43,25 +43,27 @@ class Agent:
         # plt.ylabel("Regret")
         # plt.show()
         #
-        plt.plot(np.arange(1, self.T + 1), self.regret, color='r', label='MW')
-        plt.plot(np.arange(1, self.T + 1), self.root, color='b', label='sqrt(T)')
-        plt.title("e-Greedy and UCB common plot [T = %d]" % (self.T))
-        plt.xlabel("Round T")
-        plt.ylabel("Regret")
+        # plt.plot(np.arange(1, self.T + 1), self.regret, color='r', label='MW')
+        # plt.plot(np.arange(1, self.T + 1), self.root, color='b', label='sqrt(T)')
+        # plt.title("e-Greedy and UCB common plot [T = %d]" % (self.T))
+        # plt.xlabel("Round T")
+        # plt.ylabel("Regret")
+        #
+        # plt.legend()
+        # plt.show()
 
-        plt.legend()
-        plt.show()
 
-
-    def run(self):
+    def mw_expert(self):
         for i in range(self.T):
             probabilities = self.weights / np.sum(self.weights)  # propabilities for prediction
             prediction = np.random.choice(self.n_servers, p=probabilities)  # randomised prediction based on weights
 
+            # get the smaller delay
+            best_server = best_server = np.argmin(self.data[:, i])
+            best_delay = self.data[best_server, i]
             # calculate the loss of each expert
             for j in range(self.n_servers):
-                delay = np.sum(self.data[j, :i + 1])
-                best_delay = np.argmin(np.sum(self.data[:, :i + 1], axis=1))
+                delay = self.data[j, i]
                 self.losses[j] = np.abs(delay - best_delay)
                 if j == prediction:
                     self.regret.append(self.losses[j])
@@ -72,10 +74,16 @@ class Agent:
             self.weights /= np.sum(self.weights)
 
             self.root.append(np.sqrt(i))
-        self.grapher()
+        return np.cumsum(self.regret)
 
+    def run(self):
+        if self.MW_expert:
+            mw_regret = self.mw_expert()
+            self.grapher(mw_regret)
+        exit()
 
 if __name__ == '__main__':
     agent = Agent(7000)
+    agent.MW_expert = True
     agent.run()
 
