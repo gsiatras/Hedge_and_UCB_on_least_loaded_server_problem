@@ -23,11 +23,11 @@ class Agent:
         # enviroment parameters
         self.T = T  # Horizon
         self.n_servers = self.data.shape[0]  # number of servers = rows of csv
-        self.htta =  np.sqrt(np.log(self.n_servers) / self.T)  # htta for discount factor
+        self.eta = np.sqrt(np.log(self.n_servers) / self.T)  # eta for discount factor
         self.weights = np.ones(self.n_servers)  # array of 1's divides by number of servers to get same weights
         self.losses = np.zeros(self.n_servers)  # array to store the losses of each server for expert enviroment
         self.regret = []
-        self.root = []
+
 
     def grapher(self, regret1):
         plt.plot(np.arange(1, self.T + 1), regret1)
@@ -65,14 +65,13 @@ class Agent:
                 delay = self.data[j, i]
                 self.losses[j] = np.abs(delay - best_delay)
                 if j == prediction:
-                    self.regret.append(self.losses[j])
+                    self.regret.append(self.losses[j])  # regret for based on our prediction
 
-            # Update the weights based on the expert losses and the learning rate
+            # Update the weights based on the expert losses
             for k in range(self.n_servers):
-                self.weights[k] *= np.power((1 - self.htta), self.losses[k])
-            self.weights /= np.sum(self.weights)
+                self.weights[k] *= np.power((1 - self.eta), self.losses[k])
+            self.weights /= np.sum(self.weights)  # normalise the weights
 
-            self.root.append(np.sqrt(i))
         return np.cumsum(self.regret)
 
     def run(self):
