@@ -11,8 +11,8 @@ import pandas as pd
 class Agent:
 
     def __init__(self, T):
-        self.MW_bandit = False
-        self.MW_expert = False
+        self.bandit = False
+        self.expert = False
         self.ucb = False
 
         # load data from CSV file
@@ -26,62 +26,90 @@ class Agent:
         self.eta = np.sqrt(np.log(self.n_servers) / self.T)  # eta for discount factor
         self.weights = np.ones(self.n_servers)  # array of 1's divides by number of servers to get same weights
         self.losses = np.zeros(self.n_servers)  # array to store the losses of each server for expert enviroment
+        self.regret = []  # array to store regret
+        self.probabilities = np.ones(self.n_servers)  # array to store propability of choosing each server
+
+    def reset(self):
+        self.weights = np.ones(self.n_servers)
         self.regret = []
+        self.probabilities = np.ones(self.n_servers)
+    def grapher(self, regret1, regret2):
+        # plt.plot(np.arange(1, self.T + 1), regret1)
+        # plt.title("Hedge in expert [T = %d]" % self.T)
+        # plt.xlabel("Round T")
+        # plt.ylabel("Regret")
+        # plt.show()
+        #
+        # plt.plot(np.arange(1, self.T + 1), regret2)
+        # plt.title("Hedge in bandit [T = %d]" % self.T)
+        # plt.xlabel("Round T")
+        # plt.ylabel("Regret")
+        # plt.show()
 
-
-    def grapher(self, regret1):
-        plt.plot(np.arange(1, self.T + 1), regret1)
-        plt.title("Hedge in expert [T = %d]" % self.T)
+        plt.plot(np.arange(1, self.T + 1), regret1, color='r', label='MW in expert')
+        plt.plot(np.arange(1, self.T + 1), regret2, color='b', label='MW in bandit')
+        plt.title("Mulpiplicate Weights Algorithm [T = %d]" % self.T)
         plt.xlabel("Round T")
         plt.ylabel("Regret")
+
+        plt.legend()
         plt.show()
+    def decide(self):
+        if self.expert:
+            self.probabilities = self.weights / np.sum(self.weights)  # probabilities for prediction
+        if self.bandit:
+            self.probabilities = (1-self.eta)*(self.weights / np.sum(self.weights)) + self.eta/self.n_servers
 
-        # plt.plot(np.arange(1, self.T + 1), regret_ucb)
-        # plt.title("UCB Performance [T = %d, k = %d]" % (self.T, self.k))
-        # plt.xlabel("Round T")
-        # plt.ylabel("Regret")
-        # plt.show()
-        #
-        # plt.plot(np.arange(1, self.T + 1), self.regret, color='r', label='MW')
-        # plt.plot(np.arange(1, self.T + 1), self.root, color='b', label='sqrt(T)')
-        # plt.title("e-Greedy and UCB common plot [T = %d]" % (self.T))
-        # plt.xlabel("Round T")
-        # plt.ylabel("Regret")
-        #
-        # plt.legend()
-        # plt.show()
-
-
-    def mw_expert(self):
+        prediction = np.random.choice(self.n_servers, p=self.probabilities)  # randomised prediction based on weights
+        return prediction
+    def mw_run(self):
         for i in range(self.T):
-            probabilities = self.weights / np.sum(self.weights)  # propabilities for prediction
-            prediction = np.random.choice(self.n_servers, p=probabilities)  # randomised prediction based on weights
-
+            # self.eta = np.sqrt(np.log(self.n_servers) / (i+1))
+            # get the server prediction
+            prediction = self.decide()
             # get the smaller delay
             best_server = best_server = np.argmin(self.data[:, i])
             best_delay = self.data[best_server, i]
-            # calculate the loss of each expert
-            for j in range(self.n_servers):
-                delay = self.data[j, i]
-                self.losses[j] = np.abs(delay - best_delay)
-                if j == prediction:
-                    self.regret.append(self.losses[j])  # regret for based on our prediction
 
-            # Update the weights based on the expert losses
-            for k in range(self.n_servers):
-                self.weights[k] *= np.power((1 - self.eta), self.losses[k])
-            self.weights /= np.sum(self.weights)  # normalise the weights
+            if self.expert:
+                # calculate the loss of each expert
+                for j in range(self.n_servers):
+                    delay = self.data[j, i]
+                    self.losses[j] = np.abs(delay - best_delay)
+                    if j == prediction:
+                        self.regret.append(self.losses[j])  # regret for based on our prediction
+
+                # Update the weights based on the expert losses
+                for k in range(self.n_servers):
+                    self.weights[k] *= np.power((1 - self.eta), self.losses[k])
+                self.weights /= np.sum(self.weights)  # normalise the weights
+
+            if self.bandit:
+                # calculate loss of predicted server
+                delay = self.data[prediction, i]
+                loss = np.abs(delay - best_delay)
+                self.regret.append(loss)
+
+                # update the weights
+                new_loss = loss/self.probabilities[prediction]
+                self.weights[prediction] *= np.power((1 - self.eta), new_loss)
+                self.weights /= np.sum(self.weights)  # normalise the weights
 
         return np.cumsum(self.regret)
 
     def run(self):
-        if self.MW_expert:
-            mw_regret = self.mw_expert()
-            self.grapher(mw_regret)
-        exit()
+        self.expert = True
+        mw_ex_regret = self.mw_run()
+
+        self.reset()
+        self.expert = False
+        self.bandit = True
+        mw_bd_regret = self.mw_run()
+
+        self.grapher(mw_ex_regret, mw_bd_regret)
 
 if __name__ == '__main__':
     agent = Agent(7000)
-    agent.MW_expert = True
     agent.run()
+    exit()
 
