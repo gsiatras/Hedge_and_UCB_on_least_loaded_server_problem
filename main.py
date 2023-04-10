@@ -2,8 +2,6 @@
 import csv
 import numpy as np
 import matplotlib.pyplot as plt
-import pandas as pd
-
 
 
 
@@ -28,12 +26,14 @@ class Agent:
         self.losses = np.zeros(self.n_servers)  # array to store the losses of each server for expert enviroment
         self.regret = []  # array to store regret
         self.probabilities = np.ones(self.n_servers)  # array to store propability of choosing each server
-
+        self.server_ucb = np.full(self.n_servers, np.inf)  # array of upper confidence bound of each server set to inf so we explore atleast once
+        self.server_pulls = np.zeros(self.n_servers)  # array of server pulls of each server
+        self.server_losses = np.zeros(self.n_servers)
     def reset(self):
         self.weights = np.ones(self.n_servers)
         self.regret = []
         self.probabilities = np.ones(self.n_servers)
-    def grapher(self, regret1, regret2):
+    def grapher(self, regret1, regret2, regret3):
         # plt.plot(np.arange(1, self.T + 1), regret1)
         # plt.title("Hedge in expert [T = %d]" % self.T)
         # plt.xlabel("Round T")
@@ -48,12 +48,22 @@ class Agent:
 
         plt.plot(np.arange(1, self.T + 1), regret1, color='r', label='MW in expert')
         plt.plot(np.arange(1, self.T + 1), regret2, color='b', label='MW in bandit')
-        plt.title("Mulpiplicate Weights Algorithm [T = %d]" % self.T)
+        plt.title("Multiplicative Weights Algorithm [T = %d]" % self.T)
         plt.xlabel("Round T")
         plt.ylabel("Regret")
 
         plt.legend()
         plt.show()
+
+        plt.plot(np.arange(1, self.T + 1), regret2, color='r', label='MW in bandit')
+        plt.plot(np.arange(1, self.T + 1), regret3, color='b', label='UCB')
+        plt.title("Multiplicative-UCB in bandit [T = %d]" % self.T)
+        plt.xlabel("Round T")
+        plt.ylabel("Regret")
+
+        plt.legend()
+        plt.show()
+
     def decide(self):
         if self.expert:
             self.probabilities = self.weights / np.sum(self.weights)  # probabilities for prediction
@@ -97,6 +107,29 @@ class Agent:
 
         return np.cumsum(self.regret)
 
+    def ucb_run(self):
+        for i in range(self.T):
+            decision = np.argmax(self.server_ucb)
+            # get the smaller delay
+            best_server = np.argmin(self.data[:, i])
+            best_delay = self.data[best_server, i]
+            # get servers delay and loss
+            delay = self.data[decision, i]
+            loss = np.abs(delay - best_delay)
+            self.server_pulls[decision] += 1
+            # calculate total loss
+            if self.server_ucb[decision] == 0:
+                self.server_losses[decision] += 1-loss
+            else:
+                self.server_losses[decision] = ((self.server_losses[decision]*self.server_pulls[decision] - 1)
+                                                + 1-loss) / (self.server_pulls[decision])
+
+            self.server_ucb[decision] = self.server_losses[decision] + np.sqrt(2 * np.log(i+1) / self.server_pulls[decision])
+            # add regret
+            self.regret.append(loss)
+        return np.cumsum(self.regret)
+
+
     def run(self):
         self.expert = True
         mw_ex_regret = self.mw_run()
@@ -106,7 +139,13 @@ class Agent:
         self.bandit = True
         mw_bd_regret = self.mw_run()
 
-        self.grapher(mw_ex_regret, mw_bd_regret)
+        self.reset()
+        self.ucb = True
+        ucb_regret = self.ucb_run()
+        self.grapher(mw_ex_regret, mw_bd_regret, ucb_regret)
+
+
+
 
 if __name__ == '__main__':
     agent = Agent(7000)
