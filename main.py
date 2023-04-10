@@ -21,37 +21,28 @@ class Agent:
         # enviroment parameters
         self.T = T  # Horizon
         self.n_servers = self.data.shape[0]  # number of servers = rows of csv
-        self.eta = np.sqrt(np.log(self.n_servers) / self.T)  # eta for discount factor
+        self.eta = np.sqrt(np.log(self.n_servers) / self.T)  # discount parameter
         self.weights = np.ones(self.n_servers)  # array of 1's divides by number of servers to get same weights
         self.losses = np.zeros(self.n_servers)  # array to store the losses of each server for expert enviroment
         self.regret = []  # array to store regret
         self.probabilities = np.ones(self.n_servers)  # array to store propability of choosing each server
         self.server_ucb = np.full(self.n_servers, np.inf)  # array of upper confidence bound of each server set to inf so we explore atleast once
         self.server_pulls = np.zeros(self.n_servers)  # array of server pulls of each server
-        self.server_losses = np.zeros(self.n_servers)
+        self.server_losses = np.zeros(self.n_servers)  # array to store total losses of each server
+        self.epsilon = 1/(self.T*self.n_servers)  # the exploration probability
+
     def reset(self):
         self.weights = np.ones(self.n_servers)
         self.regret = []
         self.probabilities = np.ones(self.n_servers)
-    def grapher(self, regret1, regret2, regret3):
-        # plt.plot(np.arange(1, self.T + 1), regret1)
-        # plt.title("Hedge in expert [T = %d]" % self.T)
-        # plt.xlabel("Round T")
-        # plt.ylabel("Regret")
-        # plt.show()
-        #
-        # plt.plot(np.arange(1, self.T + 1), regret2)
-        # plt.title("Hedge in bandit [T = %d]" % self.T)
-        # plt.xlabel("Round T")
-        # plt.ylabel("Regret")
-        # plt.show()
+        self.eta = np.sqrt(np.log(self.n_servers) / self.T + 1)
 
+    def grapher(self, regret1, regret2, regret3):
         plt.plot(np.arange(1, self.T + 1), regret1, color='r', label='MW in expert')
         plt.plot(np.arange(1, self.T + 1), regret2, color='b', label='MW in bandit')
         plt.title("Multiplicative Weights Algorithm [T = %d]" % self.T)
         plt.xlabel("Round T")
         plt.ylabel("Regret")
-
         plt.legend()
         plt.show()
 
@@ -68,12 +59,17 @@ class Agent:
         if self.expert:
             self.probabilities = self.weights / np.sum(self.weights)  # probabilities for prediction
         if self.bandit:
-            self.probabilities = (1-self.eta)*(self.weights / np.sum(self.weights)) + self.eta/self.n_servers
+            self.probabilities = (1-self.epsilon)*(self.weights / np.sum(self.weights)) + self.epsilon/self.n_servers
 
         prediction = np.random.choice(self.n_servers, p=self.probabilities)  # randomised prediction based on weights
         return prediction
+
     def mw_run(self):
         for i in range(self.T):
+            if self.expert:
+                self.eta = np.sqrt(np.log(self.n_servers) / self.T)
+            elif self.bandit:
+                self.eta = np.sqrt(np.log(self.n_servers) / (self.T*self.n_servers))
             # self.eta = np.sqrt(np.log(self.n_servers) / (i+1))
             # get the server prediction
             prediction = self.decide()
@@ -104,7 +100,6 @@ class Agent:
                 new_loss = loss/self.probabilities[prediction]
                 self.weights[prediction] *= np.power((1 - self.eta), new_loss)
                 self.weights /= np.sum(self.weights)  # normalise the weights
-
         return np.cumsum(self.regret)
 
     def ucb_run(self):
@@ -129,7 +124,6 @@ class Agent:
             self.regret.append(loss)
         return np.cumsum(self.regret)
 
-
     def run(self):
         self.expert = True
         mw_ex_regret = self.mw_run()
@@ -145,10 +139,10 @@ class Agent:
         self.grapher(mw_ex_regret, mw_bd_regret, ucb_regret)
 
 
-
-
 if __name__ == '__main__':
     agent = Agent(7000)
+    agent.run()
+    agent = Agent(1000)
     agent.run()
     exit()
 
